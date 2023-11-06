@@ -50,8 +50,8 @@ class VelocityTranslator(Node):
             Float64: Left wheel velocity.
             Float64: Right wheel velocity.
         """
-        vel_l = (vel + omega * L / 2)
-        vel_r = (vel - omega * L / 2)
+        vel_l = (vel - omega * L / 2)
+        vel_r = (vel + omega * L / 2)
 
         print(f"{vel_l = }")
         print(f"{vel_r = }")
