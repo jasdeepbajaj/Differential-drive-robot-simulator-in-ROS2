@@ -2,10 +2,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from disc_robot import *
-
-robot = load_disc_robot('normal.robot')
-L = robot['wheels']['distance'] #wheel_distance
+from project4a.disc_robot import load_disc_robot
 
 class VelocityTranslator(Node):
     """
@@ -15,8 +12,13 @@ class VelocityTranslator(Node):
         """
         Initializes the VelocityTranslator node.
         """
-        super().__init__('velocity_translator_node')
+        super().__init__('velocity_translator')
+
+        robot = load_disc_robot('normal.robot')
+        self.L = robot['wheels']['distance'] #wheel_distance
+        
         self.subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
+        
         self.left_publisher = self.create_publisher(Float64, '/vl', 10)
         self.right_publisher = self.create_publisher(Float64, '/vr', 10)
 
@@ -50,11 +52,11 @@ class VelocityTranslator(Node):
             Float64: Left wheel velocity.
             Float64: Right wheel velocity.
         """
-        vel_l = (vel - omega * L / 2)
-        vel_r = (vel + omega * L / 2)
+        vel_l = (vel - omega * self.L / 2)
+        vel_r = (vel + omega * self.L / 2)
 
-        print(f"{vel_l = }")
-        print(f"{vel_r = }")
+        #print(f"{vel_l = }")
+        #print(f"{vel_r = }")
 
         vel_l = Float64(data = vel_l)
         vel_r = Float64(data = vel_r)
