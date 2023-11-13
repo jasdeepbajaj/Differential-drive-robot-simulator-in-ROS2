@@ -13,11 +13,14 @@ class VelocityTranslator(Node):
         """
         super().__init__('velocity_translator')
 
+        # Get the wheel_distance parameter from the parameter server
         self.declare_parameter('wheel_distance')
-        self.L = self.get_parameter('wheel_distance').value  #wheel_distance
+        self.L = self.get_parameter('wheel_distance').value  # Wheel distance between the left and right wheels
            
+        # Create a subscriber for the cmd_vel topic
         self.subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         
+        # Create publishers for left and right wheel velocities
         self.left_publisher = self.create_publisher(Float64, '/vl', 10)
         self.right_publisher = self.create_publisher(Float64, '/vr', 10)
 
@@ -31,11 +34,13 @@ class VelocityTranslator(Node):
         vel = msg.linear.x
         omega = msg.angular.z
 
+        # Calculate left and right wheel velocities
         vel_l, vel_r = self.get_wheel_velocities(vel, omega)
 
         self.get_logger().info(f"Left Wheel Velocity: {vel_l.data}")
         self.get_logger().info(f"Right Wheel Velocity: {vel_r.data}")
 
+        # Publish left and right wheel velocities
         self.left_publisher.publish(vel_l)
         self.right_publisher.publish(vel_r)
 
@@ -54,23 +59,21 @@ class VelocityTranslator(Node):
         vel_l = (vel - omega * self.L / 2)
         vel_r = (vel + omega * self.L / 2)
 
-        #print(f"{vel_l = }")
-        #print(f"{vel_r = }")
-
-        vel_l = Float64(data = vel_l)
-        vel_r = Float64(data = vel_r)
+        # Create Float64 messages for left and right wheel velocities
+        vel_l = Float64(data=vel_l)
+        vel_r = Float64(data=vel_r)
 
         return vel_l, vel_r
 
 
-def main(args = None):
+def main(args=None):
     """
     Main function to run the VelocityTranslator node.
 
     Args:
         args: Command-line arguments (not used in this example).
     """
-    rclpy.init(args = args)
+    rclpy.init(args=args)
     node = VelocityTranslator()
     rclpy.spin(node)
     node.destroy_node()

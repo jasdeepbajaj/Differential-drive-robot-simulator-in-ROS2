@@ -7,57 +7,87 @@ from math import sin, cos, pi
 import numpy as np
 
 class Simulator(Node):
+    """
+    A ROS2 node for simulating the motion of a differential drive robot.
+    """
+
     def __init__(self):
+        """
+        Initializes the Simulator node.
+        """
 
         super().__init__('simulator')
 
+        # Declare parameters
         self.declare_parameter('wheel_distance')
-        self.L = self.get_parameter('wheel_distance').value 
-
         self.declare_parameter('error_variance_left')
-        self.error_variance_left = self.get_parameter('error_variance_left').value 
-
         self.declare_parameter('error_variance_right')
-        self.error_variance_right = self.get_parameter('error_variance_right').value 
-
         self.declare_parameter('error_update_rate')
+
+        # Get parameters from the parameter server
+        self.L = self.get_parameter('wheel_distance').value 
+        self.error_variance_left = self.get_parameter('error_variance_left').value 
+        self.error_variance_right = self.get_parameter('error_variance_right').value 
         self.error_update_rate = self.get_parameter('error_update_rate').value 
 
+        # Initialize robot state and timers
         self.init_robot_state()
 
+        # Create subscribers for left and right wheel velocities
         self.vl_subscriber = self.create_subscription(Float64, '/vl', self.vl_callback, 10)
         self.vr_subscriber = self.create_subscription(Float64, '/vr', self.vr_callback, 10)
 
+        # Create a TransformBroadcaster for publishing TF transforms
         self.tf_broadcaster = TransformBroadcaster(self)
 
+        # Create timers for updating pose and error
         self.pose_update_timer = self.create_timer(0.1, self.update_pose)
         self.error_update_timer = self.create_timer(self.error_update_rate, self.update_error)
 
 
     def update_error(self):
+        """
+        Update left and right wheel errors based on Gaussian noise.
+        """
         now = self.get_clock().now()
         dt = (now - self.last_error_update_time).nanoseconds /1e9
 
         self.get_logger().info(f'{dt = }')
+
+        # Update errors using Gaussian noise
         self.error_left = np.random.normal(self.error_left, np.sqrt(self.error_variance_left))
         self.error_right = np.random.normal(self.error_right, np.sqrt(self.error_variance_right))
+
         self.last_error_update_time = self.get_clock().now()
 
     def vl_callback(self, vl: Float64):
+        """
+        Callback for left wheel velocity subscriber.
+        """
         self.get_logger().info(f'{vl.data = }')
+
+        # Update left wheel velocity and introduce error
         self.vl = vl.data * self.error_left
         self.get_logger().info(f'{self.vl = }')
         self.get_logger().info(f'{self.error_left = }')
         self.last_update_time = self.get_clock().now()
 
     def vr_callback(self, vr: Float64):
+        """
+        Callback for right wheel velocity subscriber.
+        """
         self.get_logger().info(f'{vr.data = }')
+
+        # Update right wheel velocity and introduce error
         self.vr = vr.data * self.error_right
         self.get_logger().info(f'{self.vr = }')
         self.get_logger().info(f'{self.error_right = }')
         self.last_update_time = self.get_clock().now()
 
     def init_robot_state(self):
+        """
+        Initialize the state variables for the robot.
+        """
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
@@ -72,6 +102,9 @@ class Simulator(Node):
 
         
     def update_pose(self):
+        """
+        Update the robot's pose based on wheel velocities.
+        """
         now = self.get_clock().now()
         dt = (now - self.last_update_time).nanoseconds / 1e9
 
@@ -123,6 +156,9 @@ class Simulator(Node):
         self.broadcast_tf() 
 
     def broadcast_tf(self):
+        """
+        Broadcast the current robot pose as a TF transform.
+        """
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
         t.header.frame_id = 'world'
@@ -138,11 +174,13 @@ class Simulator(Node):
         t.transform.rotation.z = q[2]
         t.transform.rotation.w = q[3]
         
-
         self.tf_broadcaster.sendTransform(t)
 
 
 def quaternion_from_euler(ai, aj, ak):
+    """
+    Convert Euler angles to quaternion representation.
+    """
     ai /= 2.0
     aj /= 2.0
     ak /= 2.0
@@ -167,6 +205,9 @@ def quaternion_from_euler(ai, aj, ak):
 
 
 def main(args = None):
+    """
+    Main function to initialize the ROS2 node and spin it.
+    """
     rclpy.init(args = args)
     node = Simulator()
     rclpy.spin(node)
