@@ -6,6 +6,7 @@ from math import sin, cos, pi, atan2
 import numpy as np
 from geometry_msgs.msg import TransformStamped
 from project4a.disc_robot import load_disc_robot
+import os
 
 
 
@@ -34,19 +35,19 @@ def quaternion_from_euler(ai, aj, ak):
 
 
 class VelocityTranslator(Node):
-    """
+    """ro
     Node for translating linear and angular velocities to left and right wheel velocities.
     """
     def __init__(self):
         """
         Initializes the VelocityTranslator node.
         """
-        super().__init__('velocity_translator_node')
+        super().__init__('combined')
 
-        #file_path = "/home/jasdeep/ros2_ws/src/project4a/project4a/normal.robot" 
-        robot = load_disc_robot('normal.robot')
-
-        
+        self.declare_parameter('robot_name', 'normal.robot')
+        file_name = self.get_parameter('robot_name').value
+        file_path = os.path.join("/home/jasdeep/ros2_ws/src/project4a/", file_name)       
+        robot = load_disc_robot(file_path)        
         
         self.L = robot['wheels']['distance'] #wheel_distance     
         

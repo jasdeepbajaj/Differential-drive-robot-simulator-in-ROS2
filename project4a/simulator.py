@@ -5,49 +5,56 @@ from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from math import sin, cos, pi
 import numpy as np
-from project4a.disc_robot import load_disc_robot
-
-
 
 class Simulator(Node):
     def __init__(self):
 
         super().__init__('simulator')
 
-        robot = load_disc_robot('normal.robot')
-        
-        self.L = robot['wheels']['distance'] #wheel_distance
-        
-        self.error_variance_left = robot['wheels']['error_variance_left']
-        self.error_variance_right = robot['wheels']['error_variance_right']
-        self.error_update_rate = robot['wheels']['error_update_rate']
+        self.declare_parameter('wheel_distance')
+        self.L = self.get_parameter('wheel_distance').value 
+
+        self.declare_parameter('error_variance_left')
+        self.error_variance_left = self.get_parameter('error_variance_left').value 
+
+        self.declare_parameter('error_variance_right')
+        self.error_variance_right = self.get_parameter('error_variance_right').value 
+
+        self.declare_parameter('error_update_rate')
+        self.error_update_rate = self.get_parameter('error_update_rate').value 
 
         self.init_robot_state()
-
-        self.last_error_update_time = self.get_clock().now()
 
         self.vl_subscriber = self.create_subscription(Float64, '/vl', self.vl_callback, 10)
         self.vr_subscriber = self.create_subscription(Float64, '/vr', self.vr_callback, 10)
 
         self.tf_broadcaster = TransformBroadcaster(self)
 
-        self.timer = self.create_timer(0.1, self.update_pose)
+        self.pose_update_timer = self.create_timer(0.1, self.update_pose)
+        self.error_update_timer = self.create_timer(self.error_update_rate, self.update_error)
+
 
     def update_error(self):
         now = self.get_clock().now()
-        dt = (now - self.last_error_update_time).nanoseconds / 1e9
+        dt = (now - self.last_error_update_time).nanoseconds /1e9
 
-        if dt > self.error_update_rate:
-            self.error_left = np.random.normal(self.error_left, np.sqrt(self.error_variance_left))
-            self.error_right = np.random.normal(self.error_right, np.sqrt(self.error_variance_right))
-            self.last_error_update_time = now
+        self.get_logger().info(f'{dt = }')
+        self.error_left = np.random.normal(self.error_left, np.sqrt(self.error_variance_left))
+        self.error_right = np.random.normal(self.error_right, np.sqrt(self.error_variance_right))
+        self.last_error_update_time = self.get_clock().now()
 
     def vl_callback(self, vl: Float64):
+        self.get_logger().info(f'{vl.data = }')
         self.vl = vl.data * self.error_left
+        self.get_logger().info(f'{self.vl = }')
+        self.get_logger().info(f'{self.error_left = }')
         self.last_update_time = self.get_clock().now()
 
     def vr_callback(self, vr: Float64):
+        self.get_logger().info(f'{vr.data = }')
         self.vr = vr.data * self.error_right
+        self.get_logger().info(f'{self.vr = }')
+        self.get_logger().info(f'{self.error_right = }')
         self.last_update_time = self.get_clock().now()
 
     def init_robot_state(self):
@@ -57,12 +64,13 @@ class Simulator(Node):
         
         self.vl = 0.0
         self.vr = 0.0
+        self.last_update_time = self.get_clock().now()
         
         self.error_left = 1.0
         self.error_right = 1.0
-        self.last_update_time = self.get_clock().now()
-        
+        self.last_error_update_time = self.get_clock().now()
 
+        
     def update_pose(self):
         now = self.get_clock().now()
         dt = (now - self.last_update_time).nanoseconds / 1e9
@@ -92,19 +100,13 @@ class Simulator(Node):
                         [sin(icc_omega * dt), cos(icc_omega * dt), 0],
                         [0, 0, 1]])
             
-            print(f"{A.shape = }")
-    
             B = np.array([[self.x - cx],
                         [self.y - cy],
                         [self.theta]])
             
-            print(f"{B.shape = }")
-            
             C = np.array([[cx],
                         [cy],
                         [icc_omega * dt]])
-            
-            print(f"{C.shape = }")
             
             updated_pose = np.dot(A, B) + C
             print(f"{updated_pose.shape = }")
@@ -113,16 +115,10 @@ class Simulator(Node):
             self.y = updated_pose[1][0]
             self.theta = updated_pose[2][0]
 
-        print(f"{self.x = }")
-        print(f"{self.y = }")
-        print(f"{self.theta = }")
-
         if self.theta > pi:
             self.theta -= 2*pi
         elif self.theta < -pi:
             self.theta += 2*pi
-
-        print(f"After wrapping theta, {self.theta = }")
 
         self.broadcast_tf() 
 

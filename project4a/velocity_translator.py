@@ -2,7 +2,6 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
-from project4a.disc_robot import load_disc_robot
 
 class VelocityTranslator(Node):
     """
@@ -14,9 +13,9 @@ class VelocityTranslator(Node):
         """
         super().__init__('velocity_translator')
 
-        robot = load_disc_robot('normal.robot')
-        self.L = robot['wheels']['distance'] #wheel_distance
-        
+        self.declare_parameter('wheel_distance')
+        self.L = self.get_parameter('wheel_distance').value  #wheel_distance
+           
         self.subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         
         self.left_publisher = self.create_publisher(Float64, '/vl', 10)
